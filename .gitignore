@@ -2,3 +2,4 @@ data
 pretrained
 test
 .idea
+n3ml/__pycache__
