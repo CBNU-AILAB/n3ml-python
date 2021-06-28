@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from n3ml.network import Network
-from n3ml.population import InputPopulation, LIFPopulation, DiehlAndCookPopulation
+from n3ml.population import InputPopulation, LIFPopulation, DiehlAndCookPopulation, SoftLIF
 from n3ml.connection import Connection
 from n3ml.learning import ReSuMe, PostPre
 from n3ml.layer import IF1d, IF2d, Conv2d, AvgPool2d, Linear
@@ -32,30 +32,69 @@ class Ponulak2005(Network):
 class DiehlAndCook2015(Network):
     def __init__(self):
         super().__init__()
-        self.add_component('inp', InputPopulation(1*28*28))
-        self.add_component('exc', DiehlAndCookPopulation(100))
-        self.add_component('inh', LIFPopulation(100))
-        self.add_component('xe', Connection(self.inp, self.exc, learning=PostPre))
-        self.add_component('ei', Connection(self.exc, self.inh))
-        self.add_component('ie', Connection(self.inh, self.exc))
+        self.add_component('inp', InputPopulation(1*28*28,
+                                                  traces=True,
+                                                  tau_tr=20.0))
+        self.add_component('exc', DiehlAndCookPopulation(100,
+                                                         traces=True,
+                                                         rest=-65.0,
+                                                         reset=-60.0,
+                                                         v_th=-52.0,
+                                                         tau_ref=5.0,
+                                                         tau_rc=100.0,
+                                                         tau_tr=20.0))
+        self.add_component('inh', LIFPopulation(100,
+                                                traces=False,
+                                                rest=-60.0,
+                                                reset=-45.0,
+                                                v_th=-40.0,
+                                                tau_rc=10.0,
+                                                tau_ref=2.0,
+                                                tau_tr=20.0))
+        self.add_component('xe', Connection(self.inp,
+                                            self.exc,
+                                            mode='type0',
+                                            learning=PostPre,
+                                            w_min=0.0,
+                                            w_max=1.0))
+        self.add_component('ei', Connection(self.exc,
+                                            self.inh,
+                                            mode='type2',
+                                            w_min=0.0,
+                                            w_max=22.5))
+        self.add_component('ie', Connection(self.inh,
+                                            self.exc,
+                                            mode='type1',
+                                            w_min=-17.5,
+                                            w_max=0.0))
 
-    def reset(self):
-        self.inp.reset()
-        self.exc.reset()
-        self.inh.reset()
 
-    def update(self):
-        # TODO: update()를 어떻게 해야 추상화 할 수 있을까?
-        # TODO: non-BP 기반 학습 알고리즘은 update()를 사용하여 학습을 수행한다.
-        self.xe.update()
+class Hunsberger2015(Network):
+    def __init__(self, amplitude, tau_ref, tau_rc, gain, sigma, num_classes=10):
+        super().__init__()
+        self.num_classes = num_classes
+        self.extractor = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False),
+            SoftLIF(amplitude=amplitude, tau_ref=tau_ref, tau_rc=tau_rc, gain=gain, sigma=sigma),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(64, 192, kernel_size=3, padding=1, bias=False),
+            SoftLIF(amplitude=amplitude, tau_ref=tau_ref, tau_rc=tau_rc, gain=gain, sigma=sigma),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(192, 256, kernel_size=3, padding=1, bias=False),
+            SoftLIF(amplitude=amplitude, tau_ref=tau_ref, tau_rc=tau_rc, gain=gain, sigma=sigma),
+            nn.AvgPool2d(kernel_size=2)
+        )
+        self.classifier = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(256, 1024, bias=False),
+            SoftLIF(amplitude=amplitude, tau_ref=tau_ref, tau_rc=tau_rc, gain=gain, sigma=sigma),
+            nn.Linear(1024, self.num_classes, bias=False)
+        )
 
     def forward(self, x):
-        x = self.inp(x)
-        x = self.xe(x)
-        x, _ = self.exc(x)
-        x = self.ei(x)
-        x, _ = self.inh(x)
-        x = self.ie(x)
+        x = self.extractor(x)
+        x = x.view(x.size(0), 256)
+        x = self.classifier(x)
         return x
 
 

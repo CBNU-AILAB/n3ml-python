@@ -26,28 +26,26 @@ def app(opt):
 
     fig = None
     mat = None
-    # i = 0
 
     # Conduct training phase
     for epoch in range(opt.num_epochs):
         for images, labels in train_loader:
             # Initialize a model
-            model.reset()
+            model.init_param()
             # Encode images into spiked_images
             spiked_images = encoder(images)
             spiked_images = spiked_images.view(opt.time_interval, opt.batch_size, -1)
             # Train a model
             for time in range(opt.time_interval):
-                model(spiked_images[time])
-                print(model.exc.v_th + model.exc.theta)
+                model.run({'inp': spiked_images[time]})
+                # print(model.exc.v_th + model.exc.theta)
+                # print(model.inp.s)
+                # print(model.exc.s.sum())
             # Update weights using learning rule
             model.update()
-            # Plot arranged weights to show
-            # if i % 50 == 0:
-            #     model.xe.w[0].fill_(0.05)
+
             w = model.xe.w.detach().cpu().numpy()
             fig, mat = plot_w(fig, mat, w)
-            # i += 1
 
 
 if __name__ == '__main__':

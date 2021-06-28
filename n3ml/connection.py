@@ -9,14 +9,35 @@ class BaseConnection(nn.Module):
     def forward(self, x):
         pass
 
-    def init_param(self):
-        # Initialize the learnable parameters in a network
-        self.w[:] = torch.rand(self.w.size()) * 0.01
+    def init_param(self) -> None:
+        # mode: type0 - many-to-many
+        #       type1 - many-to-many w/o same poisiton
+        #       type2 - one-to-one
+        # 이 구현에서는 source와 target의 크기가 서로 같다고 가정한다.
+        # 확장을 하기 위해서는 서로 다른 크기에 대해서도 대각행렬을 만들 수 있는
+        # 구현을 해야 한다.
+        if self.mode == 'type0':
+            # m2m
+            self.w[:] = torch.rand(self.w.size()) * 0.3
+        elif self.mode == 'type1':
+            # m2m w/o same position
+            # 이 시냅스는 inhibitory syanpse로 사용되기 때문에 negative로 초기화한다.
+            # 이 시냅스와 별개로 negative로 설정할 시냅스를 입력받아 처리하도록 확장해야 한다.
+            self.w[:] = (torch.ones(self.w.size()) * -120).fill_diagonal_(0.0)
+        elif self.mode == 'type2':
+            # o2o
+            self.w[:] = torch.diagflat(torch.ones(self.w.size()[0]) * 22.5)
 
 
 class Connection(BaseConnection):
     # This Connection class is designed to connect between two 1D Population instances
-    def __init__(self, source, target, learning=None, mode='m2m'):
+    def __init__(self,
+                 source,
+                 target,
+                 learning=None,
+                 mode='type0',
+                 w_min: float = 0.0,
+                 w_max: float = 1.0):
         super().__init__()
         # Now, both source and target must be 1D Population instances
         self.source = source
@@ -26,25 +47,20 @@ class Connection(BaseConnection):
             self.learning = learning(self)
         else:
             self.learning = learning
-        # mode: m2m (many-to-many)
-        #       o2o (one-to-one)
-        #       m2o (many-to-one)
-        #       o2m (one-to-many)
+        # mode: type0
+        #       type1
+        #       type2
         self.mode = mode
-
-        if mode == 'm2m':
-            self.register_buffer('w', torch.zeros((target.neurons, source.neurons)))
-        elif mode == 'o2o':
-            pass
-        elif mode == 'm2o':
-            pass
-        elif mode == 'o2m':
-            pass
+        self.register_buffer('w', torch.zeros((target.neurons, source.neurons)))
+        self.w_min = w_min
+        self.w_max = w_max
 
         self.init_param()
 
-    def forward(self, x):
-        return torch.matmul(self.w, x)
+    def run(self) -> torch.Tensor:
+        # run() 함수는 presynaptic population에서 발화된 스파이크와
+        # 시냅스 가중치 간에 계산된 결과를 출력한다.
+        return torch.matmul(self.w, self.source.s)
 
     def update(self):
         if self.learning:

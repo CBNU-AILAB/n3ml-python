@@ -93,7 +93,7 @@ network = DiehlAndCook2015(
     inh=inh,
     dt=dt,
     nu=[1e-10, 1e-3],  # 0.711
-    norm=78.4,
+    # norm=78.4,
     theta_plus=theta_plus,
     inpt_shape=(1, 28, 28),
 )
