@@ -6,7 +6,7 @@ import torchvision
 import torch.nn as nn
 import torch.optim as optim
 
-from n3ml.model import Cao2015_Tailored
+from n3ml.model import Ho2013
 
 
 def train(train_loader, model, criterion, optimizer):
@@ -96,13 +96,13 @@ def app(opt):
         batch_size=opt.batch_size,
         num_workers=opt.num_workers)
 
-    model = Cao2015_Tailored().cuda()
+    model = Ho2013().cuda()
 
     criterion = nn.CrossEntropyLoss()
 
     optimizer = optim.SGD(model.parameters(), lr=opt.lr, momentum=opt.momentum)
 
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 60, 90])
+    lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[250, 500, 750])
 
     best_acc = 0
 
@@ -134,9 +134,9 @@ if __name__ == '__main__':
     parser.add_argument('--data', default='data')
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--num_workers', default=8, type=int)
-    parser.add_argument('--num_epochs', default=120, type=int)
+    parser.add_argument('--num_epochs', default=750, type=int)
     parser.add_argument('--lr', default=0.01, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
-    parser.add_argument('--pretrained', default='pretrained/cao2015_tailored.pt')
+    parser.add_argument('--pretrained', default='pretrained/ho2013.pt')
 
     app(parser.parse_args())

@@ -56,7 +56,8 @@ class DiehlAndCook2015(Network):
                                             mode='type0',
                                             learning=PostPre,
                                             w_min=0.0,
-                                            w_max=1.0))
+                                            w_max=1.0,
+                                            norm=78.4))
         self.add_component('ei', Connection(self.exc,
                                             self.inh,
                                             mode='type2',
@@ -65,7 +66,7 @@ class DiehlAndCook2015(Network):
         self.add_component('ie', Connection(self.inh,
                                             self.exc,
                                             mode='type1',
-                                            w_min=-17.5,
+                                            w_min=-120,
                                             w_max=0.0))
 
 
@@ -94,6 +95,79 @@ class Hunsberger2015(Network):
     def forward(self, x):
         x = self.extractor(x)
         x = x.view(x.size(0), 256)
+        x = self.classifier(x)
+        return x
+
+
+class Cao2015_Tailored(Network):
+    def __init__(self,
+                 num_classes: int = 10,
+                 in_planes: int = 3,
+                 out_planes: int = 64) -> None:
+        super().__init__()
+
+        self.num_classes = num_classes
+        self.in_planes = in_planes
+        self.out_planes = out_planes
+
+        self.extractor = nn.Sequential(
+            nn.Conv2d(in_planes, out_planes, 5, bias=False),
+            nn.ReLU(),
+            nn.AvgPool2d(2, 2),
+            nn.Conv2d(out_planes, out_planes, 5, bias=False),
+            nn.ReLU(),
+            nn.AvgPool2d(2, 2),
+            nn.Conv2d(out_planes, out_planes, 3, bias=False),
+            nn.ReLU()
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(out_planes, out_planes, bias=False),
+            nn.ReLU(),
+            nn.Linear(out_planes, num_classes, bias=False)
+        )
+
+    def forward(self, x):
+        x = self.extractor(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
+
+
+class Cao2015_SNN(Network):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        pass
+
+
+class Ho2013(Network):
+    def __init__(self, num_classes: int = 10) -> None:
+        super().__init__()
+
+        self.num_classes = num_classes
+
+        self.extractor = nn.Sequential(
+            nn.Conv2d(3, 32, 5),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 32, 5),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, 3),
+            nn.ReLU()
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.extractor(x)
+        x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
 

@@ -29,13 +29,17 @@ class Network(nn.Module):
             self._add_connection(name, component)
 
     def init_param(self) -> None:
-        for _, p in self.population.items():
+        for p in self.population.values():
             p.init_param()
+
+    def normalize(self) -> None:
+        for c in self.connection.values():
+            c.normalize()
 
     def update(self) -> None:
         # TODO: update()를 어떻게 해야 추상화 할 수 있을까?
         # TODO: non-BP 기반 학습 알고리즘은 update()를 사용하여 학습을 수행한다.
-        for _, c in self.connection.items():
+        for c in self.connection.values():
             c.update()
 
     def run(self, x: Dict[str, torch.Tensor]) -> None:
@@ -53,7 +57,12 @@ class Network(nn.Module):
                             input[p_name] += self.connection[c_name].run()
                         else:
                             input[p_name] = self.connection[c_name].run()
+
+        for p_name in self.population:
+            # print("{}'s input size: {}".format(p_name, input[p_name].size()))
             self.population[p_name].run(input[p_name])
+        # print(input['exc'])
+        # print(self.exc.v)
 
 
 if __name__ == '__main__':

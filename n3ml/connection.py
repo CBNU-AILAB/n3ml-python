@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from n3ml.population import BasePopulation
+
 
 class BaseConnection(nn.Module):
     def __init__(self):
@@ -32,12 +34,13 @@ class BaseConnection(nn.Module):
 class Connection(BaseConnection):
     # This Connection class is designed to connect between two 1D Population instances
     def __init__(self,
-                 source,
-                 target,
+                 source: BasePopulation,
+                 target: BasePopulation,
                  learning=None,
                  mode='type0',
                  w_min: float = 0.0,
-                 w_max: float = 1.0):
+                 w_max: float = 1.0,
+                 norm: float=None):
         super().__init__()
         # Now, both source and target must be 1D Population instances
         self.source = source
@@ -54,8 +57,15 @@ class Connection(BaseConnection):
         self.register_buffer('w', torch.zeros((target.neurons, source.neurons)))
         self.w_min = w_min
         self.w_max = w_max
+        self.norm = norm
 
         self.init_param()
+
+    def normalize(self) -> None:
+        if self.norm is not None:
+            w_abs_sum = self.w.abs().sum(1).unsqueeze(1)
+            w_abs_sum[w_abs_sum == 0] = 1.0
+            self.w *= self.norm / w_abs_sum
 
     def run(self) -> torch.Tensor:
         # run() 함수는 presynaptic population에서 발화된 스파이크와

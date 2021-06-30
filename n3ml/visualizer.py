@@ -1,5 +1,5 @@
+import numpy as np
 import matplotlib.pyplot as plt
-
 
 class PlotW:
     def __init__(self):
@@ -10,6 +10,7 @@ class PlotW:
 
 
 def plot_w(fig, mat, w):
+
     if mat is None or fig is None:
         plt.ion()
         fig = plt.figure()
@@ -19,24 +20,30 @@ def plot_w(fig, mat, w):
         fig.colorbar(mat)
         return fig, mat
     plt.gcf()
-    print(w[0].reshape(28, 28))
+    # print(w[0].reshape(28, 28))
     mat.set_data(w[0].reshape(28, 28))
     fig.canvas.draw()
     return fig, mat
 
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    x = np.linspace(0, 10*np.pi, 100)
-    y = np.sin(x)
-
-    plt.ion()
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    line1, = ax.plot(x, y, 'b-')
-
-    for phase in np.linspace(0, 10*np.pi, 100):
-        line1.set_ydata(np.sin(0.5 * x + phase))
-        fig.canvas.draw()
+def plot(fig, mat, w):
+    if mat is None or fig is None:
+        plt.ion()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ww = np.zeros((280, 280))
+        for r in range(10):
+            for c in range(10):
+                ww[r * 28:(r + 1) * 28, c * 28:(c + 1) * 28] = w[r * 10 + c].reshape(28, 28)
+        mat = ax.matshow(ww)
+        mat.set_clim(0, 1)
+        fig.colorbar(mat)
+        return fig, mat
+    ww = np.zeros((280, 280))
+    for r in range(10):
+        for c in range(10):
+            ww[r*28:(r+1)*28, c*28:(c+1)*28] = w[r*10+c].reshape(28, 28)
+    plt.gcf()
+    mat.set_data(ww)
+    fig.canvas.draw()
+    return fig, mat

@@ -14,8 +14,7 @@ class ReSuMe(BaseLearning):
 class PostPre(BaseLearning):
     def __init__(self,
                  connection,
-                 lr=(1e-4, 1e-2)):
-                 # lr=(1e-10, 1e-3)):
+                 lr=(1e-10, 1e-3)):
         super().__init__()
 
         self.connection = connection
@@ -24,6 +23,8 @@ class PostPre(BaseLearning):
         self.lr = lr
 
     def __call__(self) -> None:
+        prev = self.connection.w.clone()
+
         # Compute weight changes for presynaptic spikes
         s_pre = self.connection.source.s.unsqueeze(1)
         x_post = self.connection.target.x.unsqueeze(0)
@@ -36,3 +37,13 @@ class PostPre(BaseLearning):
 
         # Clamp synaptic weight
         self.connection.w[:] = torch.clamp(self.connection.w, min=self.connection.w_min, max=self.connection.w_max)
+
+        # print("s_pre.sum: {} - s_post.sum: {}".format(s_pre.sum(), s_post.sum()))
+
+        # print("s_pre:\n{}".format(s_pre))
+        # print("x_pre:\n{}".format(x_pre))
+        # print("s_post:\n{}".format(s_post))
+        # print("x_post:\n{}".format(x_post))
+
+        now = self.connection.w.clone()
+        print("diff of prev and now: {}".format((now - prev).sum()))
