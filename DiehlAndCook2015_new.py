@@ -11,11 +11,24 @@ from n3ml.encoder import PoissonEncoder
 
 
 def app(opt):
+    print(opt)
+
     # Load MNIST dataset
+    # train_loader = torch.utils.data.DataLoader(
+    #     torchvision.datasets.MNIST(
+    #         opt.data,
+    #         train=True,
+    #         transform=torchvision.transforms.Compose([
+    #             transforms.ToTensor(), transforms.Lambda(lambda x: x * 32)])),
+    #     batch_size=opt.batch_size,
+    #     shuffle=True)
+
+    # Load fashion-MNIST dataset
     train_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST(
+        torchvision.datasets.FashionMNIST(
             opt.data,
             train=True,
+            download=True,
             transform=torchvision.transforms.Compose([
                 transforms.ToTensor(), transforms.Lambda(lambda x: x * 32)])),
         batch_size=opt.batch_size,
@@ -56,7 +69,7 @@ def app(opt):
 
             # Train a model
             for t in range(opt.time_interval):
-                # print(spiked_images[t].detach().cpu().numpy().reshape(28, 28))
+                print(spiked_images[t].detach().cpu().numpy().reshape(28, 28))
 
                 model.run({'inp': spiked_images[t]})
 

@@ -28,6 +28,10 @@ class Network(nn.Module):
         elif isinstance(component, BaseConnection):
             self._add_connection(name, component)
 
+    def initialize(self, **kwargs) -> None:
+        for l in self.named_children():
+            l[1].initialize(**kwargs)
+
     def init_param(self) -> None:
         for p in self.population.values():
             p.init_param()

@@ -1,10 +1,11 @@
+import torch
 import torch.nn as nn
 
 from n3ml.network import Network
 from n3ml.population import InputPopulation, LIFPopulation, DiehlAndCookPopulation, SoftLIF
 from n3ml.connection import Connection
 from n3ml.learning import ReSuMe, PostPre
-from n3ml.layer import IF1d, IF2d, Conv2d, AvgPool2d, Linear
+from n3ml.layer import IF1d, IF2d, Conv2d, AvgPool2d, Linear, Bohte
 
 
 class Ponulak2005(Network):
@@ -96,6 +97,24 @@ class Hunsberger2015(Network):
         x = self.extractor(x)
         x = x.view(x.size(0), 256)
         x = self.classifier(x)
+        return x
+
+
+class Bohte2002(Network):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.fc1 = Bohte(50, 10)
+        self.fc2 = Bohte(10, 3)
+        # add...
+        self.fc3 = Bohte(3, 3)
+
+    def forward(self, t: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        # t: 현재 시점
+        # x: 스파이크 발화 시점에 대한 정보
+        x = self.fc1(t, x)
+        x = self.fc2(t, x)
+        x = self.fc3(t, x)
         return x
 
 

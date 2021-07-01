@@ -2,6 +2,64 @@ import torch
 import torch.nn as nn
 
 
+class Layer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+class Bohte(Layer):
+    def __init__(self,
+                 in_neurons: int,
+                 out_neurons: int,
+                 delays: int = 16,
+                 threshold: float = 1.0,
+                 time_constant: float = 5.0) -> None:
+        super().__init__()
+
+        self.in_neurons = in_neurons
+        self.out_neurons = out_neurons
+        self.delays = delays
+
+        self.register_buffer('d', torch.zeros(delays))
+        self.register_buffer('v', torch.zeros(out_neurons))
+        self.register_buffer('v_th', torch.tensor(threshold))
+        self.register_buffer('tau_rc', torch.tensor(time_constant))
+        self.register_buffer('w', torch.zeros((out_neurons, in_neurons, delays)))
+        self.register_buffer('s', torch.zeros(out_neurons))
+
+    def initialize(self, delay=False) -> None:
+        if delay:
+            self.d[:] = (torch.rand(self.delays) * 10).int()
+        # voltage는 초기화할 필요가 없다.
+        self.w[:] = torch.rand((self.out_neurons, self.in_neurons, self.delays)) * 0.02
+        self.s.fill_(-1)
+
+    def forward(self, t: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        # Step 1. Compute spike response y
+        y = self.response(t, x, self.d)
+
+        # Step 2. Compute voltage v
+        yy = y.unsqueeze(0).repeat(self.out_neurons, 1, 1)
+        self.v[:] = (self.w * yy).sum(dim=(1, 2))
+
+        # Step 3. Compute spike time t
+        # Note this is a single spike case
+        self.s[torch.logical_and(self.s < 0, self.v >= self.v_th)] = t
+
+        return self.s
+
+    def response(self, t: torch.Tensor, x: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
+        # t: 0-dimensional tensor
+        # x: 1-dimensional tensor
+        # d: 1-dimensional tensor
+        xx = x.unsqueeze(1).repeat(1, self.delays)
+        dd = d.unsqueeze(0).repeat(self.in_neurons, 1)
+        tt = t - xx - dd
+        o = torch.zeros((self.in_neurons, self.delays))
+        o[torch.logical_and(xx != -1, tt >= 0)] = (tt * torch.exp(1 - tt / self.tau_rc) / self.tau_rc)[torch.logical_and(xx != -1, tt >= 0)]
+        return o
+
+
 class Conv2d(nn.Module):
     def __init__(self, in_planes, planes, width, height, kernel_size, time_interval, stride=1, bias=False):
         super().__init__()

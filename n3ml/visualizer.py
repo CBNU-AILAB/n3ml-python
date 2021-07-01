@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class PlotW:
     def __init__(self):
         self.mat = plt.matshow()
@@ -35,7 +36,7 @@ def plot(fig, mat, w):
         for r in range(10):
             for c in range(10):
                 ww[r * 28:(r + 1) * 28, c * 28:(c + 1) * 28] = w[r * 10 + c].reshape(28, 28)
-        mat = ax.matshow(ww)
+        mat = ax.matshow(ww, cmap='hot_r')
         mat.set_clim(0, 1)
         fig.colorbar(mat)
         return fig, mat
