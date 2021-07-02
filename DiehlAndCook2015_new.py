@@ -38,7 +38,7 @@ def app(opt):
     encoder = PoissonEncoder(opt.time_interval)
 
     # Define a model
-    model = DiehlAndCook2015().cuda()
+    model = DiehlAndCook2015(neurons=400).cuda()
 
     fig = None
     mat = None

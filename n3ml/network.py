@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import Dict
 
 import torch
@@ -5,6 +6,7 @@ import torch.nn as nn
 
 from n3ml.population import BasePopulation, InputPopulation
 from n3ml.connection import BaseConnection
+from n3ml.layer import Layer
 
 
 class Network(nn.Module):
@@ -12,6 +14,7 @@ class Network(nn.Module):
         super().__init__()
         self.population = {}
         self.connection = {}
+        self.layer = OrderedDict()
 
     def _add_population(self, name, population):
         self.population[name] = population
@@ -19,14 +22,19 @@ class Network(nn.Module):
     def _add_connection(self, name, connection):
         self.connection[name] = connection
 
+    def _add_layer(self, name, layer):
+        self.layer[name] = layer
+
     def add_component(self, name, component):
-        # Add a component to torch.nn.Module
         self.add_module(name, component)
+
         # Add a component to Network to handle some update strategies
         if isinstance(component, BasePopulation):
             self._add_population(name, component)
         elif isinstance(component, BaseConnection):
             self._add_connection(name, component)
+        elif isinstance(component, Layer):
+            self._add_layer(name, component)
 
     def initialize(self, **kwargs) -> None:
         for l in self.named_children():

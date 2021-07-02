@@ -1,3 +1,5 @@
+import numpy as np
+
 import torch
 
 
@@ -97,6 +99,108 @@ def poisson(datum: torch.Tensor, time: int, dt: float = 1.0, **kwargs) -> torch.
     spikes = spikes[1:]
 
     return spikes.view(time, *shape)
+
+
+class PopulationEncoder:
+    def __init__(self, neurons, I_min, I_max, max_firing_times, not_to_fire, time_steps, beta=1.5):
+        self.neurons = neurons
+        self.I_min = I_min
+        self.I_max = I_max
+        self.max_firing_times = max_firing_times
+        self.not_to_fire = not_to_fire
+        self.time_steps = time_steps
+        self.beta = beta
+        self.mean = np.zeros((len(self.I_min), self.neurons))
+        self.dev = np.zeros(len(self.I_min))
+
+        self.mean_dev()
+
+    def mean_dev(self):
+        for n in range(self.mean.shape[0]):
+            self.dev[n] = (self.I_max[n]-self.I_min[n])/(self.beta*(self.neurons-2))
+            for i in range(self.mean.shape[1]):
+                self.mean[n, i] = self.I_min[n]+(2*i-3)*(self.I_max[n]-self.I_min[n])/(2*(self.neurons-2))
+
+    def density(self, x, mu, sig):
+        return np.exp(-(x-mu)**2/(2*sig**2))/(np.sqrt(2*np.pi*sig**2))
+
+    def __call__(self, x):
+        """
+        :param x: a list of real-values
+        :return:
+        """
+        o = np.zeros((len(self.I_min), self.neurons))
+        for n in range(self.mean.shape[0]):
+            for i in range(self.mean.shape[1]):
+                o[n, i] = self.density(x[n], self.mean[n, i], self.dev[n])
+        for n in range(self.mean.shape[0]):
+            max_density = self.density(0, 0, self.dev[n])
+            for i in range(self.mean.shape[1]):
+                o[n, i] = o[n, i]/max_density
+        for n in range(self.mean.shape[0]):
+            for i in range(self.mean.shape[1]):
+                o[n, i] = int(-o[n, i] * self.max_firing_times + self.max_firing_times) * self.time_steps
+                if o[n, i] >= self.not_to_fire*self.time_steps:
+                    o[n, i] = -1
+        return o
+
+"""
+    data_encoder = n3ml.encoder.Population(neurons=12,
+                                           minimum=summary['min'],
+                                           maximum=summary['max'],
+                                           max_firing_time=opt.max_firing_time,
+                                           not_to_fire=opt.not_to_fire,
+                                           dt=opt.dt)
+"""
+
+class Population(Encoder):
+    def __init__(self, neurons: int,
+                 minimum: torch.Tensor,
+                 maximum: torch.Tensor,
+                 max_firing_time: int,
+                 not_to_fire: int,
+                 dt: int,
+                 beta: float = 1.5) -> None:
+        super().__init__()
+
+        self.neurons = neurons
+        self.minimum = minimum
+        self.maximum = maximum
+        self.max_firing_time = max_firing_time
+        self.not_to_fire = not_to_fire
+        self.dt = dt
+        self.beta = beta
+        self.mean = torch.zeros((minimum.size(0), neurons))
+        self.dev = torch.zeros((minimum.size(0)))
+        self.pi = torch.tensor(np.pi)
+
+        self.mean_dev()
+
+    def mean_dev(self):
+        for n in range(self.mean.size(0)):
+            self.dev[n] = (self.maximum[n]-self.minimum[n])/(self.beta*(self.neurons-2))
+            for i in range(self.mean.size(1)):
+                self.mean[n, i] = self.minimum[n]+(2*i-3)*(self.maximum[n]-self.minimum[n])/(2*(self.neurons-2))
+
+    def density(self, x, mu, sig):
+        return torch.exp(-(x-mu)**2/(2*sig**2))/(torch.sqrt(2*self.pi*sig**2))
+
+    def run(self, x: torch.Tensor) -> None:
+        o = torch.zeros(self.minimum.size(0), self.neurons)
+        for n in range(self.mean.size(0)):
+            for i in range(self.mean.size(1)):
+                o[n, i] = self.density(x[n], self.mean[n, i], self.dev[n])
+        for n in range(self.mean.size(0)):
+            max_density = self.density(0, 0, self.dev[n])
+            for i in range(self.mean.size(1)):
+                o[n, i] /= max_density
+        for n in range(self.mean.size(0)):
+            for i in range(self.mean.size(1)):
+                # o[n, i] = torch.round(-o[n, i] * self.max_firing_time + self.max_firing_time)
+                o[n, i] = torch.round(-o[n, i] * self.max_firing_time + self.max_firing_time)
+                if o[n, i] >= self.not_to_fire:
+                    o[n, i] = -1
+        return o
 
 
 if __name__ == '__main__':

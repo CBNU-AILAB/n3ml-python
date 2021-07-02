@@ -31,12 +31,13 @@ class Ponulak2005(Network):
 
 
 class DiehlAndCook2015(Network):
-    def __init__(self):
+    def __init__(self, neurons: int = 100):
         super().__init__()
+        self.neurons = neurons
         self.add_component('inp', InputPopulation(1*28*28,
                                                   traces=True,
                                                   tau_tr=20.0))
-        self.add_component('exc', DiehlAndCookPopulation(100,
+        self.add_component('exc', DiehlAndCookPopulation(neurons,  #
                                                          traces=True,
                                                          rest=-65.0,
                                                          reset=-60.0,
@@ -44,7 +45,7 @@ class DiehlAndCook2015(Network):
                                                          tau_ref=5.0,
                                                          tau_rc=100.0,
                                                          tau_tr=20.0))
-        self.add_component('inh', LIFPopulation(100,
+        self.add_component('inh', LIFPopulation(neurons,  #
                                                 traces=False,
                                                 rest=-60.0,
                                                 reset=-45.0,
@@ -104,17 +105,14 @@ class Bohte2002(Network):
     def __init__(self) -> None:
         super().__init__()
 
-        self.fc1 = Bohte(50, 10)
-        self.fc2 = Bohte(10, 3)
-        # add...
-        self.fc3 = Bohte(3, 3)
+        self.add_component('fc1', Bohte(50, 10))
+        self.add_component('fc2', Bohte(10, 3))
 
     def forward(self, t: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
         # t: 현재 시점
         # x: 스파이크 발화 시점에 대한 정보
         x = self.fc1(t, x)
         x = self.fc2(t, x)
-        x = self.fc3(t, x)
         return x
 
 
