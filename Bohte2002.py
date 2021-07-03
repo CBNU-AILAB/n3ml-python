@@ -21,8 +21,8 @@ class LabelEncoder:
 
     def run(self, label):
         o = torch.zeros(self.num_classes)
-        o.fill_(10)
-        o[label].fill_(0)
+        o.fill_(10)  # 25
+        o[label].fill_(5)  # 15
         return o
 
 
@@ -32,6 +32,9 @@ def rmse(pred, target):
 
 
 def app(opt):
+    import numpy as np
+    np.set_printoptions(threshold=np.inf)
+
     print(opt)
 
     data_loader = n3ml.data.IRISDataLoader()
@@ -47,12 +50,13 @@ def app(opt):
     label_encoder = LabelEncoder(opt.num_classes)
 
     model = n3ml.model.Bohte2002()
+    model.initialize()
 
     optimizer = n3ml.optimizer.Bohte()
 
     for epoch in range(opt.num_epochs):
         for i in range(data['train.data'].size(0)):
-            model.initialize()
+            model.initialize(delay=False)
 
             input = data['train.data'][i]
             label = data['train.target'][i]
@@ -75,14 +79,17 @@ def app(opt):
                 # print(model.fc2.s.int())
                 # print()
 
-            o = model.fc2.s
+            # print(model.fc1.s)
+            # print(model.fc2.s)
+            print(model.fc.s)
+
+            # o = model.fc2.s
+            o = model.fc.s
             loss = rmse(o, spiked_label)
 
             print("loss: {}".format(loss))
 
-            optimizer.step(model, spiked_label)
-
-            exit(0)
+            optimizer.step(model, spiked_input, spiked_label)
 
 
 if __name__ == '__main__':
@@ -90,10 +97,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_classes', default=3, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--num_epochs', default=2, type=int)
-    parser.add_argument('--dt', default=1, type=int)                # 1 ms
-    parser.add_argument('--num_steps', default=30, type=int)        # 60 ms
-    parser.add_argument('--max_firing_time', default=20, type=int)  # 20 ms
-    parser.add_argument('--not_to_fire', default=18, type=int)      # 18 ms
+    parser.add_argument('--num_epochs', default=30, type=int)
+    parser.add_argument('--dt', default=1, type=int)
+    parser.add_argument('--num_steps', default=50, type=int)
+    parser.add_argument('--max_firing_time', default=30, type=int)
+    parser.add_argument('--not_to_fire', default=28, type=int)
 
     app(parser.parse_args())

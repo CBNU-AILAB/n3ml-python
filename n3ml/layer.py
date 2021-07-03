@@ -27,11 +27,12 @@ class Bohte(Layer):
         self.register_buffer('w', torch.zeros((out_neurons, in_neurons, delays)))
         self.register_buffer('s', torch.zeros(out_neurons))
 
-    def initialize(self, delay=False) -> None:
+    def initialize(self, delay=True) -> None:
         if delay:
+            print("only once")
             self.d[:] = (torch.rand(self.delays) * 10).int()
-        # voltage는 초기화할 필요가 없다.
-        self.w[:] = torch.rand((self.out_neurons, self.in_neurons, self.delays)) * 0.02
+            # voltage는 초기화할 필요가 없다.
+            self.w[:] = torch.rand((self.out_neurons, self.in_neurons, self.delays)) * 0.03 - 0.0005
         self.s.fill_(-1)
 
     def forward(self, t: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
