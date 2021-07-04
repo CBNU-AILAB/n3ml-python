@@ -32,7 +32,7 @@ class Bohte(Layer):
             print("only once")
             self.d[:] = (torch.rand(self.delays) * 10).int()
             # voltage는 초기화할 필요가 없다.
-            self.w[:] = torch.rand((self.out_neurons, self.in_neurons, self.delays)) * 0.03 - 0.0005
+            self.w[:] = torch.rand((self.out_neurons, self.in_neurons, self.delays)) * 0.01 + 0.02
         self.s.fill_(-1)
 
     def forward(self, t: torch.Tensor, x: torch.Tensor) -> torch.Tensor:

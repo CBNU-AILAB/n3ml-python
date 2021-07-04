@@ -21,8 +21,8 @@ class LabelEncoder:
 
     def run(self, label):
         o = torch.zeros(self.num_classes)
-        o.fill_(10)  # 25
-        o[label].fill_(5)  # 15
+        o.fill_(13)  # 15
+        o[label].fill_(7)  # 5
         return o
 
 
@@ -79,12 +79,12 @@ def app(opt):
                 # print(model.fc2.s.int())
                 # print()
 
-            # print(model.fc1.s)
-            # print(model.fc2.s)
-            print(model.fc.s)
+            print(model.fc1.s)
+            print(model.fc2.s)
+            # print(model.fc.s)
 
-            # o = model.fc2.s
-            o = model.fc.s
+            o = model.fc2.s
+            # o = model.fc.s
             loss = rmse(o, spiked_label)
 
             print("loss: {}".format(loss))
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_classes', default=3, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--num_epochs', default=30, type=int)
+    parser.add_argument('--num_epochs', default=60, type=int)
     parser.add_argument('--dt', default=1, type=int)
     parser.add_argument('--num_steps', default=50, type=int)
     parser.add_argument('--max_firing_time', default=30, type=int)

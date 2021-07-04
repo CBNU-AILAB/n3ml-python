@@ -105,16 +105,16 @@ class Bohte2002(Network):
     def __init__(self) -> None:
         super().__init__()
 
-        # self.add_component('fc1', Bohte(50, 10))
-        # self.add_component('fc2', Bohte(10, 3))
-        self.add_component('fc', Bohte(50, 3))
+        self.add_component('fc1', Bohte(50, 10))
+        self.add_component('fc2', Bohte(10, 3))
+        # self.add_component('fc', Bohte(50, 3))
 
     def forward(self, t: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
         # t: 현재 시점
         # x: 스파이크 발화 시점에 대한 정보
-        # x = self.fc1(t, x)
-        # x = self.fc2(t, x)
-        x = self.fc(t, x)
+        x = self.fc1(t, x)
+        x = self.fc2(t, x)
+        # x = self.fc(t, x)
         return x
 
 

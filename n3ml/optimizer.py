@@ -53,12 +53,12 @@ class Bohte:
                 # print("last layer")
                 dldx = torch.zeros(layer[l].out_neurons)
                 for j in range(layer[l].out_neurons):
-                    numer = (spiked_label[j]-layer[l].s[j])
+                    numer = (layer[l].s[j]-spiked_label[j])
                     denom = 0
                     for i in range(layer[l].in_neurons):
                         for k in range(layer[l].delays):
                             denom += (layer[l].w[j, i, k]*dydt(spike_time[l][j], spike_time[l+1][i], layer[l].d[k], layer[l].tau_rc))
-                    dldx[j] = numer/(denom+1e-15)
+                    dldx[j] = -numer/(denom+1e-15)
                 error.append(dldx)
                 dxdw = torch.zeros_like(layer[l].w)
                 for j in range(layer[l].out_neurons):
@@ -88,7 +88,7 @@ class Bohte:
                     for h in range(layer[l].in_neurons):
                         for m in range(layer[l].delays):
                             denom += layer[l].w[i, h, m] * dydt(spike_time[l][i], spike_time[l+1][h], layer[l].d[m], layer[l].tau_rc)
-                    dldx[i] = numer/denom
+                    dldx[i] = -numer/(denom+1e-15)
                 error.append(dldx)
                 dxdw = torch.zeros_like(layer[l].w)
                 for i in range(layer[l].out_neurons):
@@ -102,3 +102,4 @@ class Bohte:
                             g[i, h, m] = -lr * dxdw[i, h, m] * dldx[i]
                 # print(g)
                 layer[l].w += g
+                layer[l].w[:] = torch.clamp(layer[l].w, 0.02, 1)
