@@ -31,11 +31,12 @@ class Bohte:
     def __init__(self):
         pass
 
-    def step(self, model, spiked_input, spiked_label):
+    def step(self, model, spiked_input, spiked_label, epoch):
         # print(model)
 
         # lr = 0.0001  #
-        lr = 0.01
+        # lr = 0.01
+        lr = 0.0075
 
         layer = []
         spike_time = [spiked_input]  # with input spike

@@ -29,7 +29,6 @@ class Bohte(Layer):
 
     def initialize(self, delay=True) -> None:
         if delay:
-            print("only once")
             self.d[:] = (torch.rand(self.delays) * 10).int()
             # voltage는 초기화할 필요가 없다.
             self.w[:] = torch.rand((self.out_neurons, self.in_neurons, self.delays)) * 0.01 + 0.02
