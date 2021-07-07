@@ -5,7 +5,7 @@ from n3ml.network import Network
 from n3ml.population import InputPopulation, LIFPopulation, DiehlAndCookPopulation, SoftLIF
 from n3ml.connection import Connection
 from n3ml.learning import ReSuMe, PostPre
-from n3ml.layer import IF1d, IF2d, Conv2d, AvgPool2d, Linear, Bohte
+from n3ml.layer import IF1d, IF2d, Conv2d, AvgPool2d, Linear, Bohte, TravanaeiAndMaida
 
 
 class Ponulak2005(Network):
@@ -116,6 +116,30 @@ class Bohte2002(Network):
         x = self.fc2(t, x)
         # x = self.fc(t, x)
         return x
+
+
+class TravanaeiAndMaida2017(Network):
+    def __init__(self,
+                 num_classes: int = 10,
+                 hidden_neurons: int = 100) -> None:
+        super().__init__()
+        self.num_classes = num_classes
+        self.hidden_neurons = hidden_neurons
+        self.add_component('fc1', TravanaeiAndMaida(in_neurons=1*28*28,
+                                                    out_neurons=hidden_neurons,
+                                                    threshold=0.9))
+        self.add_component('fc2', TravanaeiAndMaida(in_neurons=hidden_neurons,
+                                                    out_neurons=num_classes,
+                                                    threshold=hidden_neurons*0.025))
+
+    def forward(self, o: torch.Tensor) -> torch.Tensor:
+        o = self.fc1(o)
+        o = self.fc2(o)
+        return o
+
+    def reset_variables(self, **kwargs):
+        for l in self.layer.values():
+            l.reset_variables(**kwargs)
 
 
 class Cao2015_Tailored(Network):

@@ -26,6 +26,39 @@ import torch
 #         rate[datum != 0] = 1 / datum[datum != 0] * (1000 / dt)
 
 
+class Simple:
+    """ This is a simple version encoder
+
+        It has to inherit base encoder for consistency.
+
+    """
+    def __init__(self, time_interval: int = 100, scale: float = 5.0) -> None:
+        """
+
+            scale에 대한 고찰
+            scale < 1.0인 경우는 more deterministic 특성을 보이게 된다.
+            scale > 1.0인 경우는 more stochastic 특성을 보이게 된다. (more realistic spike train)
+
+        :param time_interval:
+        :param scale:
+        """
+        self.time_interval = time_interval
+        self.scale = scale
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        # x.size: [1, 28, 28]
+        xx = x.unsqueeze(dim=0).repeat(self.time_interval, 1, 1, 1)
+        r = torch.rand([self.time_interval] + [_ for _ in x.size()])
+        return (xx >= self.scale * r).float()
+
+
+if __name__ == '__main__':
+    x = torch.zeros((1, 28, 28))
+    time_interval = 100
+    r = torch.rand([time_interval] + [_ for _ in x.size()])
+    print(r.size())
+
+
 class Encoder:
     # language=rst
     """
@@ -201,19 +234,3 @@ class Population(Encoder):
                 if o[n, i] >= self.not_to_fire:
                     o[n, i] = -1
         return o
-
-
-if __name__ == '__main__':
-    r = torch.rand(1, 2, 2, 3)
-    p = torch.rand(4, 1, 2, 2, 3)
-
-    rr = r.unsqueeze(0).repeat(4, 1, 1, 1, 1)
-    print(rr.size())
-
-    print(rr)
-    print(p)
-    print(p <= rr)
-
-    encoder = PoissonEncoder()
-
-    print(encoder(r, 4))

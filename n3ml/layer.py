@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.autograd as autograd
 
 
 class Layer(nn.Module):
@@ -58,6 +59,79 @@ class Bohte(Layer):
         o = torch.zeros((self.in_neurons, self.delays))
         o[torch.logical_and(xx != -1, tt >= 0)] = (tt * torch.exp(1 - tt / self.tau_rc) / self.tau_rc)[torch.logical_and(xx != -1, tt >= 0)]
         return o
+
+
+class TravanaeiAndMaida(Layer):
+    """ Now, this layer only supports fully-connected case.
+
+        In future, we will add additional functionalities
+        1. batch processing (now, batch size is always 1)
+        2. convolution processing
+    """
+    def __init__(self,
+                 in_neurons: int,
+                 out_neurons: int,
+                 threshold: float = 1.0,
+                 reset: float = 0.0) -> None:
+        super().__init__()
+        self.in_neurons = in_neurons
+        self.out_neurons = out_neurons
+        self.register_buffer('th', torch.tensor(threshold))
+        self.register_buffer('reset', torch.tensor(reset))
+        self.register_buffer('u', torch.zeros(out_neurons))
+        self.register_buffer('o', torch.zeros(out_neurons))
+        self.register_buffer('w', torch.zeros(out_neurons, in_neurons))
+
+    def forward(self, o: torch.Tensor) -> torch.Tensor:
+        self.u += torch.matmul(self.w, o)
+        self.o[:] = self.u >= self.th
+        self.u.masked_fill_(self.u >= self.th, self.reset)
+        return self.o
+
+    def reset_variables(self, u: bool = True, w: bool = True):
+        if u:
+            self.u.fill_(self.reset)
+        if w:
+            self.w[:] = torch.normal(0, 1, self.w.size())
+
+
+# class _TravanaeiAndMaida(autograd.Function):
+#     @staticmethod
+#     def forward(ctx, o, u, th, w):
+#         ctx.save_for_backward(o, u, th, w)
+#         u += torch.matmul(w, o)
+#         oo = torch.zeros_like(u)
+#         oo.masked_fill_(u >= th, 1)
+#         return oo
+#
+#     @staticmethod
+#     def backward(ctx, output_grad):
+#         o, u, th, w = ctx.saved_tensors
+#         doodw = None
+#         doodo = None
+#         return torch.tensor(0)
+#
+#
+# class TravanaeiAndMaida(Layer):
+#     """ Now, this layer only supports fully-connected case.
+#
+#         In future, we will add additional functionalities
+#         1. batch processing (now, batch size is always 1)
+#         2. convolution processing
+#     """
+#     def __init__(self,
+#                  in_neurons: int,
+#                  out_neurons: int,
+#                  threshold: float = 1.0) -> None:
+#         super().__init__()
+#         self.in_neurons = in_neurons
+#         self.out_neurons = out_neurons
+#         self.register_buffer('u', torch.zeros(out_neurons))
+#         self.register_buffer('th', torch.tensor(threshold))
+#         self.register_parameter('w', nn.Parameter(torch.zeros(out_neurons, in_neurons)))
+#
+#     def forward(self, o: torch.Tensor) -> torch.Tensor:
+#         return _TravanaeiAndMaida.apply(o, self.u, self.th, self.w)
 
 
 class Conv2d(nn.Module):

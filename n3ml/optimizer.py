@@ -1,5 +1,7 @@
 import torch
 
+import n3ml.network
+
 
 def y(t_j, t_i, d_k, tau):
     if t_j >= 0 and t_i >= 0:
@@ -104,3 +106,44 @@ class Bohte:
                 # print(g)
                 layer[l].w += g
                 layer[l].w[:] = torch.clamp(layer[l].w, 0.02, 1)
+
+
+class TavanaeiAndMaida:
+    def __init__(self,
+                 model: n3ml.network.Network,
+                 lr: float = 0.0005) -> None:
+        self.model = model
+        self.lr = lr
+
+    def step(self, spike_buffer, spiked_label, label):
+        """"""
+        """
+            텐서로 변환된 spike_buffer[b]의 크기는 [epsilon, # neurons]와 같다.
+        """
+        buffer = {}
+        for b in spike_buffer:
+            buffer[b] = torch.stack(spike_buffer[b])
+
+        if spiked_label[label] > 0.5:  # target neuron fires at that time
+            in_grad = torch.zeros(self.model.fc2.out_neurons)
+            for i in range(self.model.fc2.out_neurons):
+                if i == label:
+                    if torch.sum(buffer['fc2'][:, i]) < 1:
+                        in_grad[i] = 1
+                else:
+                    if torch.sum(buffer['fc2'][:, i]) > 0:
+                        in_grad[i] = -1
+
+            # print(in_grad.numpy())
+
+            # Compute propagated error in line 17-18
+            e = torch.matmul(in_grad, self.model.fc2.w) * (torch.sum(buffer['fc1'], dim=0) > 0)
+
+            # Update the weights in last layer in line 19
+            updates = torch.ger(in_grad, torch.sum(buffer['fc1'], dim=0))
+            # print(updates)
+            self.model.fc2.w += updates * self.lr
+
+            updates = torch.ger(e, torch.sum(buffer['inp'], dim=0))
+            self.model.fc1.w += updates * self.lr
+            # print(updates)
