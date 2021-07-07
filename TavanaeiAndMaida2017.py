@@ -14,8 +14,37 @@ import n3ml.optimizer
 np.set_printoptions(threshold=np.inf, linewidth=np.nan)
 
 
-def validate(loader, model, encoder):
-    pass
+def accuracy(r: torch.Tensor, label: int) -> torch.Tensor:
+    """
+    :param r: (time interval, # classes) the spike trains of output neurons in T ms
+    :param label:
+    :return:
+    """
+    return (torch.argmax(torch.sum(r, dim=0)) == label).float()
+
+
+def mse(r: torch.Tensor,
+        z: torch.Tensor,
+        label: int,
+        epsilon: int = 4) -> torch.Tensor:
+    """
+    :param r: (time interval, # classes) the spike trains of output neurons in T ms
+    :param z: (time interval, # classes) the desired spike trains in T ms
+    :return:
+    """
+    e = torch.zeros_like(r)
+    for t in range(e.size(0)):
+        if z[t, label] > 0.5:
+            tt = t-epsilon if t-epsilon > 0 else 0
+            for i in range(e.size(1)):
+                if i == label:
+                    if torch.sum(r[tt:t, i]) < 0.5:
+                        e[t, i] = 1
+                else:
+                    if torch.sum(r[tt:t, i]) > 0.5:
+                        e[t, i] = -1
+    T = r.size(0)
+    return (torch.sum(e, dim=[0, 1])/T)**2
 
 
 def label_encoder(label, beta, num_classes, time_interval):
@@ -33,7 +62,41 @@ def label_encoder(label, beta, num_classes, time_interval):
     return r
 
 
-def train(loader, model, encoder, optimizer, opt):
+def validate(loader, model, encoder, loss, opt):
+    num_images = 0
+    total_loss = 0.0
+    num_corrects = 0
+
+    for image, label in loader:
+        image = image.squeeze(dim=0)
+        label = label.squeeze()
+
+        spiked_image = encoder(image)
+        spiked_image = spiked_image.view(spiked_image.size(0), -1)
+
+        spiked_label = label_encoder(label, opt.beta, opt.num_classes, opt.time_interval)
+
+        loss_buffer = []
+
+        for t in range(opt.time_interval):
+            model(spiked_image[t])
+
+            loss_buffer.append(model.fc2.o.clone())
+
+        model.reset_variables(w=False)
+
+        num_images += 1
+        num_corrects += accuracy(r=torch.stack(loss_buffer), label=label)
+        total_loss += loss(r=torch.stack(loss_buffer), z=spiked_label, label=label, epsilon=opt.epsilon)
+
+    return total_loss/num_images, float(num_corrects)/num_images
+
+
+def train(loader, model, encoder, optimizer, loss, opt):
+    num_images = 0
+    total_loss = 0.0
+    num_corrects = 0
+
     for image, label in loader:
         # Squeeze batch dimension
         # Now, batch processing isn't supported
@@ -57,8 +120,10 @@ def train(loader, model, encoder, optimizer, opt):
             'fc2': []
         }
 
-        print()
-        print("label: {}".format(label))
+        loss_buffer = []
+
+        # print()
+        # print("label: {}".format(label))
 
         for t in range(opt.time_interval):
             # print(np_spiked_image[t])
@@ -69,20 +134,28 @@ def train(loader, model, encoder, optimizer, opt):
             spike_buffer['fc1'].append(model.fc1.o.clone())
             spike_buffer['fc2'].append(model.fc2.o.clone())
 
+            loss_buffer.append(model.fc2.o.clone())
+
             for l in spike_buffer.values():
-                if len(l) > 5:
+                if len(l) > 5:  # TODO: 5를 epsilon을 사용해서 표현해야 함
                     l.pop(0)
 
             # print(model.fc1.u.numpy())
             # print(model.fc1.o.numpy())
             # print(model.fc2.u.numpy())
-            print(model.fc2.o.numpy())
+            # print(model.fc2.o.numpy())
 
             # time.sleep(1)
 
             optimizer.step(spike_buffer, spiked_label[t], label)
 
         model.reset_variables(w=False)
+
+        num_images += 1
+        num_corrects += accuracy(r=torch.stack(loss_buffer), label=label)
+        total_loss += loss(r=torch.stack(loss_buffer), z=spiked_label, label=label, epsilon=opt.epsilon)
+
+    return total_loss/num_images, float(num_corrects)/num_images
 
 
 def app(opt):
@@ -115,10 +188,15 @@ def app(opt):
     # Make an optimizer
     optimizer = n3ml.optimizer.TavanaeiAndMaida(model, lr=opt.lr)
 
-    for epoch in range(opt.num_epochs):
-        train(train_loader, model, encoder, optimizer, opt)
+    # Define a loss
+    criterion = mse
 
-        validate(val_loader, model, encoder)
+    for epoch in range(opt.num_epochs):
+        loss, acc = train(train_loader, model, encoder, optimizer, criterion, opt)
+        print("epoch: {} - loss: {} - accuracy: {}".format(epoch, loss, acc))
+
+        loss, acc = validate(val_loader, model, encoder, loss, opt)
+        print("In test, loss: {} - accuracy: {}".format(loss, acc))
 
 
 if __name__ == '__main__':
@@ -128,9 +206,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_classes', default=10, type=int)
     parser.add_argument('--num_epochs', default=120, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--time_interval', default=200, type=int)
+    parser.add_argument('--time_interval', default=100, type=int)
     parser.add_argument('--beta', default=250, type=float)            # 250 Hz
     parser.add_argument('--lr', default=0.0005, type=float)
     parser.add_argument('--hidden_neurons', default=500, type=int)
+    parser.add_argument('--epsilon', default=4, type=int)
 
     app(parser.parse_args())
