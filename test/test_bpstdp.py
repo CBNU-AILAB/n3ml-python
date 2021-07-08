@@ -153,8 +153,8 @@ def train(loader, model, encoder, optimizer, criterion, opt) -> None:
 
         loss_buffer = []
 
-        # print()
-        # print("label: {}".format(label))
+        print()
+        print("label: {}".format(label))
 
         for t in range(opt.time_interval):
             # print(np_spiked_image[t])
@@ -192,7 +192,7 @@ def train(loader, model, encoder, optimizer, criterion, opt) -> None:
 
             plotter.update(y1=np.array(list_acc), y2=np.array(list_loss))
 
-        print("loss: {} - accuracy: {}".format(total_loss/num_images, float(num_corrects)/num_images))
+        # print("loss: {} - accuracy: {}".format(total_loss/num_images, float(num_corrects)/num_images))
 
     # return total_loss/num_images, float(num_corrects)/num_images
 
@@ -246,7 +246,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_classes', default=10, type=int)
     parser.add_argument('--num_epochs', default=120, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--time_interval', default=100, type=int)
+    parser.add_argument('--time_interval', default=20, type=int)
     parser.add_argument('--beta', default=250, type=float)            # 250 Hz
     parser.add_argument('--lr', default=0.0005, type=float)
     parser.add_argument('--hidden_neurons', default=500, type=int)
