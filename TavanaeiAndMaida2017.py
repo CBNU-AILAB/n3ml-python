@@ -3,6 +3,8 @@ import argparse
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -12,6 +14,30 @@ import n3ml.encoder
 import n3ml.optimizer
 
 np.set_printoptions(threshold=np.inf, linewidth=np.nan)
+
+
+class Plot:
+    def __init__(self):
+        plt.ion()
+        self.fig, self.ax = plt.subplots(figsize=(10, 10))
+        self.ax2 = self.ax.twinx()
+        plt.title('BP-STDP')
+
+    def update(self, y1, y2):
+        x = torch.arange(y1.shape[0]) * 30
+
+        ax1 = self.ax
+        ax2 = self.ax2
+
+        ax1.plot(x, y1, 'g')
+        ax2.plot(x, y2, 'b')
+
+        ax1.set_xlabel('number of images')
+        ax1.set_ylabel('accuracy', color='g')
+        ax2.set_ylabel('loss', color='b')
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
 
 def accuracy(r: torch.Tensor, label: int) -> torch.Tensor:
@@ -62,14 +88,14 @@ def label_encoder(label, beta, num_classes, time_interval):
     return r
 
 
-def validate(loader, model, encoder, loss, opt):
+def validate(loader, model, encoder, criterion, opt):
     num_images = 0
     total_loss = 0.0
     num_corrects = 0
 
     for image, label in loader:
-        image = image.squeeze(dim=0)
-        label = label.squeeze()
+        image = image.squeeze(dim=0).cuda()
+        label = label.squeeze().cuda()
 
         spiked_image = encoder(image)
         spiked_image = spiked_image.view(spiked_image.size(0), -1)
@@ -87,15 +113,20 @@ def validate(loader, model, encoder, loss, opt):
 
         num_images += 1
         num_corrects += accuracy(r=torch.stack(loss_buffer), label=label)
-        total_loss += loss(r=torch.stack(loss_buffer), z=spiked_label, label=label, epsilon=opt.epsilon)
+        total_loss += criterion(r=torch.stack(loss_buffer), z=spiked_label, label=label, epsilon=opt.epsilon)
 
     return total_loss/num_images, float(num_corrects)/num_images
 
 
-def train(loader, model, encoder, optimizer, loss, opt):
+def train(loader, model, encoder, optimizer, criterion, opt) -> None:
+    plotter = Plot()
+
     num_images = 0
     total_loss = 0.0
     num_corrects = 0
+
+    list_loss = []
+    list_acc = []
 
     for image, label in loader:
         # Squeeze batch dimension
@@ -143,7 +174,7 @@ def train(loader, model, encoder, optimizer, loss, opt):
             # print(model.fc1.u.numpy())
             # print(model.fc1.o.numpy())
             # print(model.fc2.u.numpy())
-            # print(model.fc2.o.numpy())
+            print(model.fc2.o.numpy())
 
             # time.sleep(1)
 
@@ -153,9 +184,17 @@ def train(loader, model, encoder, optimizer, loss, opt):
 
         num_images += 1
         num_corrects += accuracy(r=torch.stack(loss_buffer), label=label)
-        total_loss += loss(r=torch.stack(loss_buffer), z=spiked_label, label=label, epsilon=opt.epsilon)
+        total_loss += criterion(r=torch.stack(loss_buffer), z=spiked_label, label=label, epsilon=opt.epsilon)
 
-    return total_loss/num_images, float(num_corrects)/num_images
+        if num_images > 0 and num_images % 30 == 0:
+            list_loss.append(total_loss / num_images)
+            list_acc.append(float(num_corrects) / num_images)
+
+            plotter.update(y1=np.array(list_acc), y2=np.array(list_loss))
+
+        print("loss: {} - accuracy: {}".format(total_loss/num_images, float(num_corrects)/num_images))
+
+    # return total_loss/num_images, float(num_corrects)/num_images
 
 
 def app(opt):
@@ -192,10 +231,11 @@ def app(opt):
     criterion = mse
 
     for epoch in range(opt.num_epochs):
-        loss, acc = train(train_loader, model, encoder, optimizer, criterion, opt)
-        print("epoch: {} - loss: {} - accuracy: {}".format(epoch, loss, acc))
+        # loss, acc = train(train_loader, model, encoder, optimizer, criterion, opt)
+        # print("epoch: {} - loss: {} - accuracy: {}".format(epoch, loss, acc))
+        train(train_loader, model, encoder, optimizer, criterion, opt)
 
-        loss, acc = validate(val_loader, model, encoder, loss, opt)
+        loss, acc = validate(val_loader, model, encoder, criterion, opt)
         print("In test, loss: {} - accuracy: {}".format(loss, acc))
 
 
