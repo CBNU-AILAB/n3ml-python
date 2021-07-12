@@ -46,9 +46,8 @@ class DataLoader:
 
 
 class IRISDataLoader(DataLoader):
-    def __init__(self, ratio: float = 0.67) -> None:
+    def __init__(self, ratio: float = 0.8) -> None:
         super().__init__()
-
         self.ratio = ratio
         self.raw = sklearn.datasets.load_iris()
         self.index = None
@@ -56,14 +55,19 @@ class IRISDataLoader(DataLoader):
         self.summary = {}
 
     def run(self) -> Dict[str, torch.Tensor]:
-        n = self.raw['data'].shape[0]
-        index = torch.randperm(n)
-        mid = int(n * self.ratio)
-        self.index = index
-        self.data['train.data'] = torch.tensor(self.raw['data'][index[:mid]])
-        self.data['train.target'] = torch.tensor(self.raw['target'][index[:mid]])
-        self.data['test.data'] = torch.tensor(self.raw['data'][index[mid:]])
-        self.data['test.target'] = torch.tensor(self.raw['target'][index[mid:]])
+        data = torch.tensor(self.raw['data'])
+        target = torch.tensor(self.raw['target'])
+
+        index = torch.randperm(data.size(0))
+        data = data[index]
+        target = target[index]
+
+        mid = int(data.size(0) * self.ratio)
+        self.data['train.data'] = data[:mid]
+        self.data['train.target'] = target[:mid]
+        self.data['test.data'] = data[mid:]
+        self.data['test.target'] = target[mid:]
+
         return self.data
 
     def summarize(self) -> Dict[str, torch.Tensor]:

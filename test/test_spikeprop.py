@@ -7,6 +7,10 @@
 """
 import argparse
 
+import numpy as np
+
+import matplotlib.pyplot as plt
+
 import torch
 
 import n3ml.model
@@ -15,14 +19,38 @@ import n3ml.encoder
 import n3ml.optimizer
 
 
+class Plot:
+    def __init__(self):
+        plt.ion()
+        self.fig, self.ax = plt.subplots(figsize=(10, 10))
+        self.ax2 = self.ax.twinx()
+        plt.title('SpikeProp')
+
+    def update(self, y1, y2):
+        x = torch.arange(y1.shape[0]) * 30
+
+        ax1 = self.ax
+        ax2 = self.ax2
+
+        ax1.plot(x, y1, 'g')
+        ax2.plot(x, y2, 'b')
+
+        ax1.set_xlabel('number of images')
+        ax1.set_ylabel('accuracy', color='g')
+        ax2.set_ylabel('loss', color='b')
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+
 class LabelEncoder:
     def __init__(self, num_classes):
         self.num_classes = num_classes
 
     def run(self, label):
         o = torch.zeros(self.num_classes)
-        o.fill_(13)  # 15
-        o[label].fill_(7)  # 5
+        o.fill_(13)  # 15 13
+        o[label].fill_(8)  # 5 7
         return o
 
 
@@ -34,12 +62,13 @@ def rmse(pred, target):
 def do_correct(o, y):
     if torch.argmin(o) == (o.size(0)-torch.argmin(torch.flip(o, [0]))-1):
         return torch.argmin(o) == torch.argmin(y)
-    return 0
+    return torch.tensor(False)
 
 
-def validate(data, model, data_encoder, label_encoder, opt):
+def validate(data, model, data_encoder, label_encoder, loss, opt):
     total_data = 0
     corrects = 0
+    total_loss = 0
 
     for i in range(data['test.data'].size(0)):
         model.initialize(delay=False)
@@ -57,14 +86,15 @@ def validate(data, model, data_encoder, label_encoder, opt):
 
         total_data += 1
         corrects += do_correct(o, spiked_label)
+        total_loss += loss(o, spiked_label)
 
-    return corrects.float() / total_data
+    avg_acc = corrects.float() / total_data
+    avg_loss = total_loss / total_data
+
+    return avg_loss, avg_acc
 
 
-def train(data, model, data_encoder, label_encoder, optimizer, loss, epoch, opt):
-    total_data = 0
-    corrects = 0
-
+def train(data, model, data_encoder, label_encoder, optimizer, loss, epoch, meter, acc_buffer, loss_buffer, plotter, opt):
     for i in range(data['train.data'].size(0)):
         model.initialize(delay=False)
 
@@ -79,27 +109,33 @@ def train(data, model, data_encoder, label_encoder, optimizer, loss, epoch, opt)
             model(torch.tensor(t).float(), spiked_input)
         o = model.fc2.s
 
-        print(model.fc1.s)
-        print(model.fc2.s)
-        print("pred: {} - target: {}".format(o, spiked_label))
+        # print(model.fc1.s)
+        # print(model.fc2.s)
+        # print("pred: {} - target: {}".format(o, spiked_label))
         # l = loss(o, spiked_label)
         # print("loss: {}".format(l))
 
         optimizer.step(model, spiked_input, spiked_label, epoch)
 
-        total_data += 1
-        corrects += do_correct(o, spiked_label)
+        meter['num_images'] += 1
+        meter['num_corrects'] += do_correct(o, spiked_label)
+        meter['total_losses'] += loss(o, spiked_label)
 
-    return corrects.float() / total_data
+        if (i+1) % 30 == 0:
+            print("label: {} - target: {} - pred: {} - result: {}".format(label, spiked_label, o, do_correct(o, spiked_label)))
+
+            acc_buffer.append(1.0*meter['num_corrects']/meter['num_images'])
+            loss_buffer.append(meter['total_losses']/meter['num_images'])
+
+            plotter.update(y1=np.array(acc_buffer), y2=np.array(loss_buffer))
 
 
 def app(opt):
-    import numpy as np
     np.set_printoptions(threshold=np.inf)
 
     print(opt)
 
-    data_loader = n3ml.data.IRISDataLoader()
+    data_loader = n3ml.data.IRISDataLoader(ratio=0.8)
     data = data_loader.run()
     summary = data_loader.summarize()
 
@@ -116,12 +152,26 @@ def app(opt):
 
     optimizer = n3ml.optimizer.Bohte()
 
-    for epoch in range(opt.num_epochs):
-        acc = train(data, model, data_encoder, label_encoder, optimizer, rmse, epoch, opt)
-        print("epoch: {} - tr. acc: {}".format(epoch, acc))
+    # for plot
+    plotter = Plot()
 
-        acc = validate(data, model, data_encoder, label_encoder, opt)
-        print("epoch: {} - val. acc: {}".format(epoch, acc))
+    meter = {
+        'total_losses': 0.0,
+        'num_corrects': 0,
+        'num_images': 0
+    }
+
+    acc_buffer = []
+    loss_buffer = []
+
+    for epoch in range(opt.num_epochs):
+        train(data, model, data_encoder, label_encoder, optimizer, rmse, epoch, meter, acc_buffer, loss_buffer, plotter, opt)
+        # print("epoch: {} - tr. loss: {} - tr. acc: {}".format(epoch, loss, acc))
+
+        loss, acc = validate(data, model, data_encoder, label_encoder, rmse, opt)
+        print("epoch: {} - val. loss: {} - val. acc: {}".format(epoch, loss, acc))
+
+        data = data_loader.run()
 
 
 if __name__ == '__main__':
@@ -129,7 +179,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_classes', default=3, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--num_epochs', default=90, type=int)
+    parser.add_argument('--num_epochs', default=60, type=int)
     parser.add_argument('--dt', default=1, type=int)
     parser.add_argument('--num_steps', default=40, type=int)
     parser.add_argument('--max_firing_time', default=30, type=int)

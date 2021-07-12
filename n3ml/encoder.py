@@ -52,11 +52,18 @@ class Simple:
         return (xx >= self.scale * r).float()
 
 
-if __name__ == '__main__':
-    x = torch.zeros((1, 28, 28))
-    time_interval = 100
-    r = torch.rand([time_interval] + [_ for _ in x.size()])
-    print(r.size())
+class SimplePoisson:
+    # Poisson processor for encoding images
+    def __init__(self, time_interval):
+        self.time_interval = time_interval
+
+    def __call__(self, images):
+        # images.size: [c, h, w]
+        # spiked_images.size: [t, c, h, w]
+        c, h, w = images.size()
+        r = images.unsqueeze(0).repeat(self.time_interval, 1, 1, 1) / 32.0
+        p = torch.rand(self.time_interval, c, h, w)
+        return (p <= r).float()
 
 
 class Encoder:

@@ -1,6 +1,75 @@
 import torch
 
 import n3ml.network
+import n3ml.connection
+
+
+class Ponulak:
+    def __init__(self,
+                 synapse: n3ml.connection.Synapse,
+                 lr: float = 0.01,
+                 a_d: float = 0.0,
+                 a_l: float = 0.0,
+                 A_d: float = 1.0,
+                 A_l: float = 1.0,
+                 tau_d: float = 1.0,
+                 tau_l: float = 1.0) -> None:
+        self.synapse = synapse
+        self.lr = lr
+        self.a_d = a_d
+        self.a_l = a_l
+        self.A_d = A_d
+        self.A_l = A_l
+        self.tau_d = tau_d
+        self.tau_l = tau_l
+
+    def step(self,
+             t: int,
+             input_spike_train: torch.Tensor,
+             learning_spike: torch.Tensor,
+             desired_spike: torch.Tensor) -> None:
+        # Reverse the order at dimension 0
+        input_spike_train = torch.flip(input_spike_train, dims=[0])
+        # print(input_spike_train.size(0))
+        del_W = torch.zeros_like(self.synapse.w)
+        for k in range(input_spike_train.size(1)):  # number of input neurons
+            for i in range(learning_spike.size(0)):  # number of learning neurons
+                del_w = 0
+                if learning_spike[i] > 0.5:
+                    del_w_l = self.a_l
+                    for j in range(input_spike_train.size(0)):
+                        s_l = torch.tensor(t - j)
+                        # s_l = torch.tensor(j)
+                        # print("depression: {}".format(Ponulak.depress(s_l, self.A_l, self.tau_l)))
+                        # print("s_l: {} - A_l: {} - tau_l: {} - del_w_l: {}".format(s_l, self.A_l, self.tau_l, Ponulak.depress(s_l, self.A_l, self.tau_l)))
+                        del_w_l += Ponulak.depress(s_l, self.A_l, self.tau_l) * input_spike_train[j][k]
+                    # print("del_w_l: {}".format(del_w_l))
+                    del_w += del_w_l
+                if desired_spike[i] > 0.5:
+                    del_w_d = self.a_d
+                    for j in range(input_spike_train.size(0)):
+                        s_d = torch.tensor(t - j)
+                        # s_d = torch.tensor(j)
+                        # print("potentiation: {}".format(Ponulak.potentiate(s_d, self.A_d, self.tau_d)))
+                        del_w_d += Ponulak.potentiate(s_d, self.A_d, self.tau_d) * input_spike_train[j][k]
+                    # print("del_w_d: {}".format(del_w_d))
+                    del_w += del_w_d
+                # print("del_w: {}".format(del_w))
+                del_W[i][k] = del_w
+        # print(del_W.numpy() * self.lr)
+        self.synapse.w += del_W * self.lr
+
+    @classmethod
+    def potentiate(cls, s_d, A_d, tau_d):
+        if s_d > 0:
+            return A_d * torch.exp(-s_d/tau_d)
+        return 0
+
+    @classmethod
+    def depress(cls, s_l, A_l, tau_l):
+        if s_l > 0:
+            return -A_l * torch.exp(-s_l/tau_l)
+        return 0
 
 
 def y(t_j, t_i, d_k, tau):
