@@ -1,18 +1,17 @@
 import torch
 import torch.nn as nn
+import torch.distributions.uniform
 
-from n3ml.network import Network
-from n3ml.population import InputPopulation, LIFPopulation, DiehlAndCookPopulation
-from n3ml.connection import Connection
-from n3ml.learning import ReSuMe, PostPre
 from n3ml.layer import IF1d, IF2d, Conv2d, AvgPool2d, Linear, Bohte, TravanaeiAndMaida
 
+import n3ml.network
 import n3ml.layer
 import n3ml.population
 import n3ml.connection
+import n3ml.learning
 
 
-class Wu2018(Network):
+class Wu2018(n3ml.network.Network):
     def __init__(self,  batch_size, time_interval):
         super().__init__()
         self.conv1         = nn.Conv2d(1, 32,  kernel_size=3, stride=1, padding=1)
@@ -57,7 +56,7 @@ class Wu2018(Network):
         return outputs
 
 
-class Ponulak2005(Network):
+class Ponulak2005(n3ml.network.Network):
     def __init__(self,
                  neurons: int = 800,
                  num_classes: int = 10) -> None:
@@ -88,49 +87,50 @@ class Ponulak2005(Network):
             synapse.w[:] = torch.rand_like(synapse.w) - 0.5
 
 
-class DiehlAndCook2015(Network):
+class DiehlAndCook2015(n3ml.network.Network):
     def __init__(self, neurons: int = 100):
         super().__init__()
         self.neurons = neurons
-        self.add_component('inp', InputPopulation(1*28*28,
-                                                  traces=True,
-                                                  tau_tr=20.0))
-        self.add_component('exc', DiehlAndCookPopulation(neurons,  #
-                                                         traces=True,
-                                                         rest=-65.0,
-                                                         reset=-60.0,
-                                                         v_th=-52.0,
-                                                         tau_ref=5.0,
-                                                         tau_rc=100.0,
-                                                         tau_tr=20.0))
-        self.add_component('inh', LIFPopulation(neurons,  #
-                                                traces=False,
-                                                rest=-60.0,
-                                                reset=-45.0,
-                                                v_th=-40.0,
-                                                tau_rc=10.0,
-                                                tau_ref=2.0,
-                                                tau_tr=20.0))
-        self.add_component('xe', Connection(self.inp,
-                                            self.exc,
-                                            mode='type0',
-                                            learning=PostPre,
-                                            w_min=0.0,
-                                            w_max=1.0,
-                                            norm=78.4))
-        self.add_component('ei', Connection(self.exc,
-                                            self.inh,
-                                            mode='type2',
-                                            w_min=0.0,
-                                            w_max=22.5))
-        self.add_component('ie', Connection(self.inh,
-                                            self.exc,
-                                            mode='type1',
-                                            w_min=-120,
-                                            w_max=0.0))
+        self.add_component('inp', n3ml.population.Input(1*28*28,
+                                                        traces=True,
+                                                        tau_tr=20.0))
+        self.add_component('exc', n3ml.population.DiehlAndCook(neurons,
+                                                               traces=True,
+                                                               rest=-65.0,
+                                                               reset=-60.0,
+                                                               v_th=-52.0,
+                                                               tau_ref=5.0,
+                                                               tau_rc=100.0,
+                                                               tau_tr=20.0))
+        self.add_component('inh', n3ml.population.LIF(neurons,
+                                                      traces=False,
+                                                      rest=-60.0,
+                                                      reset=-45.0,
+                                                      v_th=-40.0,
+                                                      tau_rc=10.0,
+                                                      tau_ref=2.0,
+                                                      tau_tr=20.0))
+        self.add_component('xe', n3ml.connection.LinearSynapse(self.inp,
+                                                               self.exc,
+                                                               alpha=78.4,
+                                                               learning_rule=n3ml.learning.PostPre,
+                                                               initializer=torch.distributions.uniform.Uniform(0, 0.3)))
+        self.add_component('ei', n3ml.connection.LinearSynapse(self.exc,
+                                                               self.inh,
+                                                               w_min=0.0,
+                                                               w_max=22.5))
+        self.add_component('ie', n3ml.connection.LinearSynapse(self.inh,
+                                                               self.exc,
+                                                               w_min=-120.0,
+                                                               w_max=0.0))
+
+        # Initialize synaptic weight for each synapse
+        self.xe.init()
+        self.ei.w[:] = torch.diagflat(torch.ones_like(self.ei.w)[0] * 22.5)
+        self.ie.w[:] = (torch.ones_like(self.ie.w) * -120.0).fill_diagonal_(0.0)
 
 
-class Hunsberger2015(Network):
+class Hunsberger2015(n3ml.network.Network):
     def __init__(self, amplitude, tau_ref, tau_rc, gain, sigma, num_classes=10):
         super().__init__()
         self.num_classes = num_classes
@@ -159,7 +159,7 @@ class Hunsberger2015(Network):
         return x
 
 
-class Bohte2002(Network):
+class Bohte2002(n3ml.network.Network):
     def __init__(self) -> None:
         super().__init__()
 
@@ -176,7 +176,7 @@ class Bohte2002(Network):
         return x
 
 
-class TravanaeiAndMaida2017(Network):
+class TravanaeiAndMaida2017(n3ml.network.Network):
     def __init__(self,
                  num_classes: int = 10,
                  hidden_neurons: int = 100) -> None:
@@ -200,7 +200,7 @@ class TravanaeiAndMaida2017(Network):
             l.reset_variables(**kwargs)
 
 
-class Cao2015_Tailored(Network):
+class Cao2015_Tailored(n3ml.network.Network):
     def __init__(self,
                  num_classes: int = 10,
                  in_planes: int = 3,
@@ -235,7 +235,7 @@ class Cao2015_Tailored(Network):
         return x
 
 
-class Cao2015_SNN(Network):
+class Cao2015_SNN(n3ml.network.Network):
     def __init__(self):
         super().__init__()
 
@@ -243,7 +243,7 @@ class Cao2015_SNN(Network):
         pass
 
 
-class Ho2013(Network):
+class Ho2013(n3ml.network.Network):
     def __init__(self, num_classes: int = 10) -> None:
         super().__init__()
 
@@ -302,61 +302,3 @@ class TailoredCNN(nn.Module):
         x = self.flatten(x)
         x = self.classifier(x)
         return x
-
-
-class SpikingCNN(Network):
-    def __init__(self, num_classes=10, in_channels=3, out_channels=64, time_interval=300):
-        super().__init__()
-        self.num_classes = num_classes
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.time_interval = time_interval
-
-        self.extractor = nn.Sequential(
-            Conv2d(self.in_channels, self.out_channels, 20, 20, 5, time_interval, bias=False),
-            IF2d(self.out_channels, 20, 20, self.time_interval, threshold=5),
-            AvgPool2d(2, 2, 64, 10, 10, self.time_interval),
-            Conv2d(self.out_channels, self.out_channels, 6, 6, 5, time_interval, bias=False),
-            IF2d(out_channels, 6, 6, self.time_interval, threshold=0.99),
-            AvgPool2d(2, 2, 64, 3, 3, self.time_interval),
-            Conv2d(self.out_channels, self.out_channels, 1, 1, 3, time_interval, bias=False),
-            IF2d(out_channels, 1, 1, self.time_interval),
-        )
-        self.classifier = nn.Sequential(
-            Linear(self.out_channels, self.out_channels, self.time_interval, bias=False),
-            IF1d(self.out_channels, self.time_interval, threshold=0.99),
-            Linear(self.out_channels, self.num_classes, self.time_interval, bias=False),
-            IF1d(self.num_classes, self.time_interval)
-        )
-
-    def forward(self, t, o):
-        for module in self.extractor:
-            o = module(t, o)
-        o = o.view(o.shape[0], o.shape[1], -1)
-        for module in self.classifier:
-            o = module(t, o)
-        return o
-
-    def add_layer(self, name, layer):
-        self.add_module(name, layer)
-
-
-if __name__ == '__main__':
-    ann = TailoredCNN()
-    print("The structure of standard CNN...")
-    for _ in ann.named_children():
-        print(_)
-    print()
-
-    snn = SpikingCNN()
-    print("The structure of standard spiking CNN...")
-    for _ in snn.named_children():
-        print(_)
-    print()
-
-    snn.add_layer('added_linear', Linear(10, 10, 30, bias=False))
-    snn.add_layer('added_IF1d', IF1d(10, 30))
-
-    print("The structure of standard spiking CNN...")
-    for _ in snn.named_children():
-        print(_)

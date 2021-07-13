@@ -1,17 +1,12 @@
 import torch
 
 
-class BaseLearning:
+class LearningRule:
     def __init__(self):
         pass
 
 
-class ReSuMe(BaseLearning):
-    def __init__(self):
-        super().__init__()
-
-
-class PostPre(BaseLearning):
+class PostPre(LearningRule):
     def __init__(self,
                  connection,
                  lr=(1e-10, 1e-3)):
@@ -22,8 +17,8 @@ class PostPre(BaseLearning):
         # lr[1]은 postsynaptic spike에 대한 weight change에서 사용된다.
         self.lr = lr
 
-    def __call__(self) -> None:
-        # prev = self.connection.w.clone()
+    def run(self) -> None:
+        prev = self.connection.w.clone()
 
         # Compute weight changes for presynaptic spikes
         s_pre = self.connection.source.s.unsqueeze(1)
@@ -45,5 +40,15 @@ class PostPre(BaseLearning):
         # print("s_post:\n{}".format(s_post))
         # print("x_post:\n{}".format(x_post))
 
-        # now = self.connection.w.clone()
-        # print("diff of prev and now: {}".format((now - prev).sum()))
+        now = self.connection.w.clone()
+        print("diff of prev and now: {}".format((now - prev).sum()))
+
+
+class BaseLearning:
+    def __init__(self):
+        pass
+
+
+class ReSuMe(BaseLearning):
+    def __init__(self):
+        super().__init__()

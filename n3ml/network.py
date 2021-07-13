@@ -4,12 +4,9 @@ from typing import Dict
 import torch
 import torch.nn as nn
 
-from n3ml.population import BasePopulation, InputPopulation
-from n3ml.connection import BaseConnection
-from n3ml.layer import Layer
-
 import n3ml.population
 import n3ml.connection
+import n3ml.layer
 
 
 class Network(nn.Module):
@@ -31,20 +28,18 @@ class Network(nn.Module):
     def add_component(self, name, component):
         self.add_module(name, component)
 
-        # Add a component to Network to handle some update strategies
-        # if isinstance(component, BasePopulation):
-        #     self._add_population(name, component)
-        # elif isinstance(component, BaseConnection):
-        #     self._add_connection(name, component)
-        # elif isinstance(component, Layer):
-        #     self._add_layer(name, component)
-
         if isinstance(component, n3ml.population.Population):
             self._add_population(name, component)
         elif isinstance(component, n3ml.connection.Synapse):
             self._add_connection(name, component)
-        elif isinstance(component, Layer):
+        elif isinstance(component, n3ml.layer.Layer):
             self._add_layer(name, component)
+
+    """
+        def init(self)처럼 바로 실행하도록 하려면 Distribution을 생성자로 넘기는 것이 좋겠다.
+    """
+    def init(self):
+        pass
 
     def initialize(self, **kwargs) -> None:
         for l in self.named_children():
@@ -61,8 +56,8 @@ class Network(nn.Module):
     def update(self) -> None:
         # TODO: update()를 어떻게 해야 추상화 할 수 있을까?
         # TODO: non-BP 기반 학습 알고리즘은 update()를 사용하여 학습을 수행한다.
-        for c in self.connection.values():
-            c.update()
+        for synapse in self.connection.values():
+            synapse.update()
 
     def run(self, x: Dict[str, torch.Tensor]) -> None:
         input = {}
@@ -81,33 +76,4 @@ class Network(nn.Module):
                             input[p_name] = self.connection[c_name].run()
 
         for p_name in self.population:
-            # print("{}'s input size: {}".format(p_name, input[p_name].size()))
             self.population[p_name].run(input[p_name])
-        # print(input['exc'])
-        # print(self.exc.v)
-
-    # def run(self, x: Dict[str, torch.Tensor]) -> None:
-    #     input = {}
-    #     for name in x:
-    #         input[name] = x[name].clone()
-    #     for p_name in self.population:
-    #         if isinstance(self.population[p_name], InputPopulation):
-    #             if p_name not in input:
-    #                 input[p_name] = torch.zeros(self.population[p_name].neurons)
-    #         else:
-    #             for c_name in self.connection:
-    #                 if self.connection[c_name].target == self.population[p_name]:
-    #                     if p_name in input:
-    #                         input[p_name] += self.connection[c_name].run()
-    #                     else:
-    #                         input[p_name] = self.connection[c_name].run()
-    #
-    #     for p_name in self.population:
-    #         # print("{}'s input size: {}".format(p_name, input[p_name].size()))
-    #         self.population[p_name].run(input[p_name])
-    #     # print(input['exc'])
-    #     # print(self.exc.v)
-
-
-if __name__ == '__main__':
-    pass

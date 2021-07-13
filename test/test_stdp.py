@@ -38,7 +38,7 @@ def app(opt):
     encoder = PoissonEncoder(opt.time_interval)
 
     # Define a model
-    model = DiehlAndCook2015(neurons=400).cuda()
+    model = DiehlAndCook2015(neurons=100).cuda()
 
     fig = None
     mat = None
@@ -69,9 +69,13 @@ def app(opt):
 
             # Train a model
             for t in range(opt.time_interval):
-                print(spiked_images[t].detach().cpu().numpy().reshape(28, 28))
+                # print(spiked_images[t].detach().cpu().numpy().reshape(28, 28))
 
                 model.run({'inp': spiked_images[t]})
+
+                # print(model.inp.s.cpu().numpy().reshape(28, 28))
+                # print(model.exc.v)
+                # print(model.exc.s.cpu().numpy())
 
                 # Update weights using learning rule
                 model.update()
@@ -95,6 +99,6 @@ if __name__ == '__main__':
     parser.add_argument('--time_step', default=1, type=int)         # 1ms
     parser.add_argument('--time_interval', default=250, type=int)   # 250ms
 
-    parser.add_argument('--num_epochs', default=3, type=int)
+    parser.add_argument('--num_epochs', default=5, type=int)
 
     app(parser.parse_args())
